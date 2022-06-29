@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -40,16 +41,15 @@ func Connect(url string) (c *dynamodb.DynamoDB, err error) {
 
 func Query(client *dynamodb.DynamoDB, date string) ([]Event, error) {
 	filter := expression.Name("created_at").Contains(date)
-	proj := expression.NamesList(
-		expression.Name("id"),
-		expression.Name("occurred_at"),
-		expression.Name("description"),
-		expression.Name("title"),
-		expression.Name("shipment_steps_id"),
-		expression.Name("expires_at"),
-		expression.Name("created_at"),
-		expression.Name("service_status"),
-	)
+
+	var names []expression.NameBuilder
+
+	t := reflect.Indirect(reflect.ValueOf(Event{})).Type()
+
+	for i := 0; i < t.NumField(); i++ {
+		names = append(names, expression.Name(t.Field(i).Tag.Get("json")))
+	}
+	proj := expression.NamesList(names[0], names[1:]...)
 
 	expr, err := expression.NewBuilder().WithFilter(filter).WithProjection(proj).Build()
 	if err != nil {
