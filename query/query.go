@@ -1,6 +1,8 @@
 package query
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -62,13 +64,25 @@ func Query(client *dynamodb.DynamoDB, date string) ([]Event, error) {
 		TableName:                 aws.String(TableName),
 	}
 
-	res, err := client.Scan(input)
-	if err != nil {
+	items := []Event{}
+	var pageNum int
+	if err := client.ScanPages(input,
+		func(page *dynamodb.ScanOutput, lastPage bool) bool {
+			pageNum++
+			fmt.Printf("page %d with %d items\n", pageNum, len(page.Items))
+			items = populate(page, items)
+
+			return !lastPage
+		},
+	); err != nil {
 		return nil, err
 	}
 
-	items := make([]Event, 0, len(res.Items))
-	for _, i := range res.Items {
+	return items, nil
+}
+
+func populate(items *dynamodb.ScanOutput, e []Event) []Event {
+	for _, i := range items.Items {
 		item := Event{}
 
 		err := dynamodbattribute.UnmarshalMap(i, &item)
@@ -76,8 +90,7 @@ func Query(client *dynamodb.DynamoDB, date string) ([]Event, error) {
 			continue
 		}
 
-		items = append(items, item)
+		e = append(e, item)
 	}
-
-	return items, nil
+	return e
 }

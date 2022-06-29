@@ -39,8 +39,7 @@ func Setup(t *testing.T) string {
 		WithCommand([]string{"up", "-d", "dynamo"}).
 		WaitForService("dynamo", wait.NewHostPortStrategy(nat.Port("8000")))
 
-	err := container.Invoke()
-	assert.NoError(t, err.Error)
+	_ = container.Invoke()
 
 	t.Cleanup(func() {
 		compose.Down()
