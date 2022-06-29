@@ -22,11 +22,11 @@ type Event struct {
 	ServiceStatus   string `json:"service_status"`
 }
 
-func Connect() (c *dynamodb.DynamoDB, err error) {
+func Connect(url string) (c *dynamodb.DynamoDB, err error) {
 	s, err := session.NewSession(&aws.Config{
 		Credentials: credentials.NewStaticCredentials("FOO", "BAR", ""),
 		Region:      aws.String("DEFAULT_REGION"),
-		Endpoint:    aws.String("http://localhost:8000"),
+		Endpoint:    aws.String(url),
 	})
 	if err != nil {
 		return

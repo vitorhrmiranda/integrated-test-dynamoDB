@@ -1,13 +1,16 @@
 package query_test
 
 import (
-	"context"
 	"encoding/json"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/docker/go-connections/nat"
+	"github.com/google/uuid"
 	"github.com/vitorhrmiranda/dynamo/query"
 
 	"github.com/stretchr/testify/assert"
@@ -20,27 +23,39 @@ import (
 //go:embed db.json
 var raw []byte
 
-func Setup(t *testing.T, ctx context.Context) testcontainers.Container {
-	const port = "8000"
+func Setup(t *testing.T) string {
+	t.Helper()
 
-	req := testcontainers.ContainerRequest{
-		Image:       "amazon/dynamodb-local",
-		Entrypoint:  []string{"java", "-jar", "DynamoDBLocal.jar", "-inMemory", "-port", port},
-		WaitingFor:  wait.NewLogStrategy("CorsParams"),
-		AutoRemove:  true,
-		NetworkMode: "host",
+	if b := os.Getenv("URL"); len(b) != 0 {
+		return b
 	}
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	assert.NoError(t, err)
 
-	return container
+	compose := testcontainers.NewLocalDockerCompose(
+		[]string{"../docker-compose.yml"},
+		strings.ToLower(uuid.New().String()),
+	)
+
+	container := compose.
+		WithCommand([]string{"up", "-d", "dynamo"}).
+		WaitForService("dynamo", wait.NewHostPortStrategy(nat.Port("8000")))
+
+	err := container.Invoke()
+	assert.NoError(t, err.Error)
+
+	t.Cleanup(func() {
+		compose.Down()
+	})
+
+	return "http://0.0.0.0:8000"
 }
 
 func CreateTable(t *testing.T, client *dynamodb.DynamoDB) {
 	t.Helper()
+
+	t.Log("creating table ...")
+	defer t.Log("creating table ... done")
+
+	_, _ = client.DeleteTable(&dynamodb.DeleteTableInput{TableName: aws.String(query.TableName)})
 
 	_, err := client.CreateTable(&dynamodb.CreateTableInput{
 		AttributeDefinitions: []*dynamodb.AttributeDefinition{
@@ -76,6 +91,9 @@ func CreateTable(t *testing.T, client *dynamodb.DynamoDB) {
 func Seeds(t *testing.T, client *dynamodb.DynamoDB) {
 	t.Helper()
 
+	t.Log("creating seeds ...")
+	defer t.Log("creating seeds ... done")
+
 	var items []query.Event
 	err := json.Unmarshal(raw, &items)
 	assert.NoError(t, err)
@@ -99,19 +117,8 @@ func TestQuery(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	ctx := context.Background()
-	container := Setup(t, ctx)
-
-	defer func() {
-		err := container.Terminate(ctx)
-		assert.NoError(t, err)
-
-		if r := recover(); r != nil {
-			t.Error(err)
-		}
-	}()
-
-	client, err := query.Connect()
+	url := Setup(t)
+	client, err := query.Connect(url)
 	assert.NoError(t, err)
 
 	CreateTable(t, client)

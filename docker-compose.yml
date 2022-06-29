@@ -1,0 +1,19 @@
+version: '3.7'
+services:
+  dynamo:
+    container_name: dynamo
+    image: amazon/dynamodb-local
+    ports:
+      - 8000:8000
+
+  integration-tests:
+    build:
+      context: .
+      target: deps
+    volumes:
+      - .:/build
+    depends_on:
+      - dynamo
+    environment:
+      - URL=http://dynamo:8000
+    command: ./scripts/integration-tests.sh
