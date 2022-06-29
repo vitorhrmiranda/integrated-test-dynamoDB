@@ -11,7 +11,7 @@
 		"go.lintOnSave": "file",
 		"go.formatTool": "gofumpt",
 		"go.formatFlags": ["-ed"],
-		"go.testFlags": ["-v", "-race", "-timeout=60s"],
+		"go.testFlags": ["-v", "-race", "-timeout=60s", "-failfast", "-count=1"],
 
 		"launch": {
 			"configurations": [
