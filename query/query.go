@@ -40,7 +40,7 @@ func Connect(url string) (c *dynamodb.DynamoDB, err error) {
 }
 
 func Query(client *dynamodb.DynamoDB, date string) ([]Event, error) {
-	filter := expression.Name("created_at").Contains(date)
+	filter := expression.Name("created_at").BeginsWith(date)
 
 	var names []expression.NameBuilder
 

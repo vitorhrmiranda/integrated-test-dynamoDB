@@ -2,6 +2,7 @@ package query_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -30,14 +31,19 @@ func Setup(t *testing.T) string {
 		return b
 	}
 
+	const (
+		port    = "4566"
+		service = "aws"
+	)
+
 	compose := testcontainers.NewLocalDockerCompose(
 		[]string{"../docker-compose.yml"},
 		strings.ToLower(uuid.New().String()),
 	)
 
 	container := compose.
-		WithCommand([]string{"up", "-d", "dynamo"}).
-		WaitForService("dynamo", wait.NewHostPortStrategy(nat.Port("8000")))
+		WithCommand([]string{"up", "-d", service}).
+		WaitForService(service, wait.NewHostPortStrategy(nat.Port(port)))
 
 	_ = container.Invoke()
 
@@ -45,7 +51,7 @@ func Setup(t *testing.T) string {
 		compose.Down()
 	})
 
-	return "http://0.0.0.0:8000"
+	return fmt.Sprintf("http://0.0.0.0:%s", port)
 }
 
 func CreateTable(t *testing.T, client *dynamodb.DynamoDB) {

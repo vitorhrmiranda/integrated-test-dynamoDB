@@ -1,11 +1,17 @@
 version: '3.7'
 services:
-  dynamo:
-    container_name: dynamo
-    image: amazon/dynamodb-local
+  aws:
+    image: localstack/localstack:0.12.10
+    container_name: aws
+    environment:
+      - LAMBDA_EXECUTOR=docker
+      - LAMBDA_REMOTE_DOCKER=true
+      - HOSTNAME_EXTERNAL=aws
+      - DEBUG=1
     ports:
-      - 8000:8000
-
+      - "4566:4566"
+      - "4571:4571"
+      - "8055:8080"
   integration-tests:
     build:
       context: .
@@ -13,7 +19,7 @@ services:
     volumes:
       - .:/build
     depends_on:
-      - dynamo
+      - aws
     environment:
-      - URL=http://dynamo:8000
+      - URL=http://aws:4566
     command: ./scripts/integration-tests.sh
